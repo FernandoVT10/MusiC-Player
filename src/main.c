@@ -9,15 +9,9 @@
 
 #define MUSIC_PLAYER_WIDTH 600
 #define MUSIC_PLAYER_COVER_SIZE 400 // width and height of the cover
-
-bool button() {
-    Vector2 mousePos = GetMousePosition();
-    Rectangle rec = {0, 0, 100, 30};
-
-    DrawRectangleRec(rec, BLUE);
-
-    return CheckCollisionPointRec(mousePos, rec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-}
+#define MUSIC_PLAYER_SLIDER_THICKNESS 5
+#define MUSIC_PLAYER_SLIDER_COLOR GRAY
+#define MUSIC_PLAYER_SLIDER_PLAYED_COLOR BLUE
 
 char *read_str_from_stream(FILE *stream) {
     StringBuilder sb = {0};
@@ -93,6 +87,12 @@ typedef struct {
     Texture2D cover;
 } MusicTrack;
 
+typedef struct {
+    MusicTrack *current;
+} MusicPlayer;
+
+MusicPlayer player = {0};
+
 MusicTrack *load_music(const char *filePath) {
     MusicTrack *track = calloc(1, sizeof(MusicTrack));
     track->music = LoadMusicStream(filePath);
@@ -119,6 +119,76 @@ void unload_music(MusicTrack *track) {
     free(track);
 }
 
+void toggle_music() {
+    if(player.current == NULL) return;
+    Music music = player.current->music;
+
+    if(IsMusicStreamPlaying(music)) {
+        PauseMusicStream(music);
+    } else {
+        PlayMusicStream(music);
+    }
+}
+
+void draw_player_button(void) {
+    Vector2 mousePos = GetMousePosition();
+    Rectangle rec = {0, 0, 100, 30};
+    DrawRectangleRec(rec, BLUE);
+
+    if(CheckCollisionPointRec(mousePos, rec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        toggle_music();
+    }
+}
+
+void set_music_time(float time) {
+    if(player.current != NULL) SeekMusicStream(player.current->music, time);
+}
+
+float get_music_time() {
+    return player.current == NULL ? 0 : GetMusicTimePlayed(player.current->music);
+}
+
+float get_music_length() {
+    return player.current == NULL ? 0 : GetMusicTimeLength(player.current->music);
+}
+
+void draw_player_slider(Vector2 pos, float width) {
+    float lineThickness = MUSIC_PLAYER_SLIDER_THICKNESS;
+
+    float value = get_music_time() / get_music_length();
+    // the center of the slider
+    float centerX = (value * width) + pos.x;
+
+    {
+        Vector2 start = {pos.x, pos.y};
+        Vector2 end = {centerX, pos.y};
+        DrawLineEx(start, end, lineThickness, MUSIC_PLAYER_SLIDER_PLAYED_COLOR);
+    }
+    {
+        Vector2 start = {centerX, pos.y};
+        Vector2 end = {pos.x + width, pos.y};
+        DrawLineEx(start, end, lineThickness, MUSIC_PLAYER_SLIDER_COLOR);
+    }
+
+    Vector2 circlePos = {centerX, pos.y};
+    DrawCircleV(circlePos, 10, MUSIC_PLAYER_SLIDER_PLAYED_COLOR);
+
+    Vector2 mousePos = GetMousePosition();
+
+    // here we make the collider taller for better UX, in total is 2x taller than the line
+    Rectangle sliderRec = {
+        .x = pos.x,
+        .y = pos.y - lineThickness, // center the rec with the line
+        .width = width,
+        .height = lineThickness * 2,
+    };
+    if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, sliderRec)) {
+        float relativePos = mousePos.x - pos.x;
+        float amount = relativePos / width;
+        set_music_time(amount * get_music_length());
+    }
+}
+
 void draw_player(MusicTrack *track) {
     int screenWidth = GetScreenWidth();
     int posY = 0;
@@ -136,8 +206,13 @@ void draw_player(MusicTrack *track) {
     DrawText(track->title, center + pad, posY, 40, WHITE);
     posY += 50;
 
-    // posY += pad;
     DrawText(track->artist, center + pad, posY, 30, GRAY);
+
+    draw_player_button();
+
+    Vector2 sliderPos = {100, 600};
+    float sliderWidth = 1080;
+    draw_player_slider(sliderPos, sliderWidth);
 }
 
 int main(void) {
@@ -148,26 +223,29 @@ int main(void) {
 
     InitAudioDevice();
 
-    MusicTrack *track = load_music(musicPath);
+    player.current = load_music(musicPath);
 
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(BLACK);
-        UpdateMusicStream(track->music);
-        draw_player(track);
+        UpdateMusicStream(player.current->music);
+        draw_player(player.current);
 
-        if(button()) {
-            if(IsMusicStreamPlaying(track->music)) {
-                PauseMusicStream(track->music);
-            } else {
-                PlayMusicStream(track->music);
-            }
+        if(IsKeyPressed(KEY_SPACE)) {
+            toggle_music();
+        }
+
+        if(IsKeyPressed(KEY_RIGHT)) {
+            set_music_time(get_music_time() + 5);
+        } else if(IsKeyPressed(KEY_LEFT)) {
+            set_music_time(get_music_time() - 5);
         }
 
         EndDrawing();
     }
 
-    unload_music(track);
+    unload_music(player.current);
+    player.current = NULL;
 
     CloseAudioDevice();
     CloseWindow();
