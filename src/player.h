@@ -15,6 +15,7 @@ typedef struct {
 typedef struct {
     MusicTrack *track; // song playing currently
     bool sliding;
+    float titleOffset; // used to animate the title when it's too big
 } Player;
 
 void update_player(Player *player);

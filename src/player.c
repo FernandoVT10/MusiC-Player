@@ -8,6 +8,9 @@
 #define MUSIC_PLAYER_SLIDER_COLOR GRAY
 #define MUSIC_PLAYER_SLIDER_PLAYED_COLOR BLUE
 
+#define MUSIC_PLAYER_TITLE_SIZE 40
+#define MUSIC_PLAYER_TITLE_COLOR RED
+
 // returns cover height
 static float draw_cover(Texture2D cover) {
     int screenWidth = GetScreenWidth();
@@ -101,6 +104,38 @@ static void draw_player_slider(Player *player, Vector2 pos, float width) {
     }
 }
 
+static void draw_title(Player *player, char *title, Vector2 pos, float maxWidth) {
+    float dt = GetFrameTime();
+    float scrollingSpeed = 50;
+    float paddingBetweenTitles = 200;
+    int textWidth = MeasureText(title, MUSIC_PLAYER_TITLE_SIZE);
+
+    if(textWidth <= maxWidth) {
+        DrawText(title, pos.x, pos.y, MUSIC_PLAYER_TITLE_SIZE, WHITE);
+        return;
+    }
+
+    BeginScissorMode(pos.x, pos.y, maxWidth, MUSIC_PLAYER_TITLE_SIZE);
+
+    player->titleOffset += scrollingSpeed * dt;
+
+    if(player->titleOffset >= textWidth + paddingBetweenTitles) {
+        player->titleOffset = 0;
+    }
+
+    DrawText(title, pos.x - player->titleOffset, pos.y, MUSIC_PLAYER_TITLE_SIZE, MUSIC_PLAYER_TITLE_COLOR);
+
+    DrawText(
+        title,
+        pos.x + textWidth + paddingBetweenTitles - player->titleOffset,
+        pos.y,
+        MUSIC_PLAYER_TITLE_SIZE,
+        MUSIC_PLAYER_TITLE_COLOR
+    );
+
+    EndScissorMode();
+}
+
 static void draw_player(Player *player) {
     // TODO: make a placeholder
     if(player->track == NULL) return;
@@ -112,14 +147,17 @@ static void draw_player(Player *player) {
 
     posY += draw_cover(player->track->cover);
 
-    int pad = 20;
-    posY += pad;
-    char *title = player->track->title;
-    DrawText(title, center + pad, posY, 40, WHITE);
-    posY += 50;
+    int padding = 20;
+    posY += padding;
+
+    // title
+    Vector2 titlePos = {center + padding, posY};
+    float titleMaxWidth = MUSIC_PLAYER_WIDTH - padding * 2;
+    draw_title(player, player->track->title, titlePos, titleMaxWidth);
+    posY += MUSIC_PLAYER_TITLE_SIZE;
 
     char *artist = player->track->artist;
-    DrawText(artist, center + pad, posY, 30, GRAY);
+    DrawText(artist, center + padding, posY, 30, GRAY);
 
     draw_player_button(player);
 
