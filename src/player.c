@@ -86,7 +86,7 @@ static void draw_player_slider(Player *player, Vector2 pos, float width) {
     };
 
     Vector2 mouseDelta = GetMouseDelta();
-    bool mouseWasMoved = mouseDelta.x + mouseDelta.y != 0;
+    bool mouseWasMoved = mouseDelta.x != 0 || mouseDelta.y != 0;
 
     if((IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, sliderRec)) || (player->sliding && mouseWasMoved)) {
         float relativePos = mousePos.x - pos.x;
