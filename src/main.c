@@ -153,6 +153,9 @@ float get_music_length() {
 }
 
 void draw_player_slider(Vector2 pos, float width) {
+    // TODO: change this variable to a global state or something
+    static bool sliding = false;
+
     float lineThickness = MUSIC_PLAYER_SLIDER_THICKNESS;
 
     float value = get_music_time() / get_music_length();
@@ -182,10 +185,23 @@ void draw_player_slider(Vector2 pos, float width) {
         .width = width,
         .height = lineThickness * 2,
     };
-    if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, sliderRec)) {
+
+    Vector2 mouseDelta = GetMouseDelta();
+    bool mouseWasMoved = mouseDelta.x + mouseDelta.y != 0;
+
+    if((IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, sliderRec)) || (sliding && mouseWasMoved)) {
         float relativePos = mousePos.x - pos.x;
         float amount = relativePos / width;
+
+        if(amount < 0) amount = 0;
+        else if(amount > 1) amount = 1;
+
         set_music_time(amount * get_music_length());
+        sliding = true;
+    }
+
+    if(IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && sliding) {
+        sliding = false;
     }
 }
 
